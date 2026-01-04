@@ -107,6 +107,14 @@ function calculateKeywordGap(yourKeywords, competitorKeywords) {
   return gap.slice(0, 15);
 }
 
+
+function generateOptimizedDescription(itemData) {
+  const title = itemData.title || '';
+  const category = itemData.category_id || '';
+  const baseDescription = `${title} - Optimizado para máxima visibilidad en Mercado Libre Argentina.`;
+  return baseDescription;
+}
+
 app.post('/api/analyze', async (req, res) => {
   try {
     const { url } = req.body;
@@ -144,6 +152,11 @@ app.post('/api/analyze', async (req, res) => {
 });
 app.post('/api/analyze', async (req, res) => {
   try {
+        // Agregar timeout a todas las promesas
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Solicitud excedió el tiempo límite')), 8000)
+    );
+    
     const { publicationUrl } = req.body;
     
     if (!publicationUrl) {
