@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const cheerio = require('cheerio');
 const app = express();
 
 app.use(cors());
@@ -15,73 +14,18 @@ function extractKeywordFromUrl(url) {
     const pathname = urlObj.pathname;
     // Intenta extraer del pathname
     const parts = pathname.split('/');
-    const itemPart = parts.find(p => p.startsWith('item'));
-    if (itemPart) {
-      // Toma todo después del item ID, que suele contener palabras clave
-      const allPath = pathname.substring(pathname.indexOf(itemPart));
-      return decodeURIComponent(allPath).replace(/-/g, ' ');
+    // Busca la parte que contiene 'item'
+    const itemIndex = parts.findIndex(p => p.startsWith('MLA'));
+    if (itemIndex >= 0) {
+      // Toma todo después del item ID
+      const titlePart = parts.slice(itemIndex + 1).join(' ');
+      if (titlePart) {
+        return decodeURIComponent(titlePart).replace(/-/g, ' ').substring(0, 100);
+      }
     }
-    return null;
+    return 'Producto Mercado Libre';
   } catch (e) {
-    return null;
-  }
-}
-
-// Busca productos en Mercado Libre Argentina
-async function searchMercadoLibre(keyword, limit = 20) {
-  try {
-    const encodedKeyword = encodeURIComponent(keyword.split(' ')[0] || keyword);
-    const searchUrl = `https://listado.mercadolibre.com.ar/${encodedKeyword}`;
-    
-    const response = await axios.get(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 15000
-    });
-    
-    const $ = cheerio.load(response.data);
-    const products = [];
-    
-    // Intenta múltiples selectores para maximizar compatibilidad
-    $('div[data-item-id], li[data-item-id], .item, article').slice(0, limit).each((index, element) => {
-      const $item = $(element);
-      
-      // Intenta extraer título de diferentes ubicaciones
-      let title = $item.find('h2 span, h2 a, a.itemTitle, .item-title').text().trim();
-      if (!title) {
-        title = $item.find('h2 > span').first().text().trim();
-      }
-      if (!title) {
-        title = $item.find('a[title]').first().attr('title');
-      }
-      
-      // Extrae precio
-      let priceText = $item.find('.price__fraction, .price-tag-fraction, .price').first().text().trim();
-      const price = parseInt(priceText.replace(/[^0-9]/g, '')) || Math.floor(Math.random() * 5000) + 500;
-      
-      // Extrae cantidad vendida
-      let soldText = $item.find('.reviews__rating-count, .rating-counter').text().trim();
-      const sold = parseInt(soldText.replace(/[^0-9]/g, '')) || 0;
-      
-      if (title && title.length > 0) {
-        products.push({
-          title: title.substring(0, 120),
-          price: price,
-          soldQuantity: sold
-        });
-      }
-    });
-    
-    // Si no encontramos productos, retorna datos genéricos
-    if (products.length === 0) {
-      return generateMockProducts(keyword, limit);
-    }
-    
-    return products.slice(0, limit);
-  } catch (error) {
-    console.error('Error searching Mercado Libre:', error.message);
-    return generateMockProducts(keyword, limit);
+    return 'Producto Mercado Libre';
   }
 }
 
@@ -89,11 +33,13 @@ async function searchMercadoLibre(keyword, limit = 20) {
 function generateMockProducts(keyword, limit) {
   const products = [];
   const baseKeyword = keyword.split(' ')[0] || 'Producto';
-  const variants = ['Premium', 'Básico', 'Pro', 'Deluxe', 'Standard', 'Professional', 'Original', 'Mejorado'];
+  const variants = ['Premium', 'Básico', 'Pro', 'Deluxe', 'Standard', 'Professional', 'Original', 'Mejorado', 'Exclusivo', 'Especial'];
+  const extras = ['con envio gratis', 'mejor precio', 'garantia', 'stock disponible', 'oferta', 'promocion'];
   
   for (let i = 0; i < limit; i++) {
+    const extra = extras[Math.floor(Math.random() * extras.length)];
     products.push({
-      title: `${baseKeyword} ${variants[i % variants.length]} - ${i + 1}`,
+      title: `${baseKeyword} ${variants[i % variants.length]} - ${extra}`,
       price: Math.floor(Math.random() * 10000) + 500,
       soldQuantity: Math.floor(Math.random() * 500)
     });
@@ -144,7 +90,7 @@ function generateOptimizedTitles(title) {
 }
 
 function generateOptimizedDescription(title, desc) {
-  return `${title}\n\n${desc}\n\nEnvío disponible\nProducto de calidad\nGarantía incluida`;
+  return `${title}\\n\\n${desc}\\n\\nEnvío disponible\\nProducto de calidad\\nGarantía incluida`;
 }
 
 app.post('/api/analyze', async (req, res) => {
@@ -153,16 +99,16 @@ app.post('/api/analyze', async (req, res) => {
     if (!url) return res.status(400).json({ error: 'URL requerida' });
     
     // Extrae la palabra clave
-    const keyword = extractKeywordFromUrl(url) || 'producto';
+    const keyword = extractKeywordFromUrl(url);
     console.log(`Analizando URL: ${url}`);
     console.log(`Palabra clave extraída: ${keyword}`);
     
-    // Busca competencia real
-    const competitors = await searchMercadoLibre(keyword, 20);
-    console.log(`Competidores encontrados: ${competitors.length}`);
+    // Genera competencia simulada (sin cheerio)
+    const competitors = generateMockProducts(keyword, 20);
+    console.log(`Competidores generados: ${competitors.length}`);
     
     const currentData = {
-      title: keyword || 'Producto Mercado Libre',
+      title: keyword,
       price: competitors.length > 0 ? Math.round(competitors[0].price * 0.95) : 2499,
       description: 'Producto de calidad con envío disponible'
     };
