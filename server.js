@@ -11,6 +11,7 @@ app.use(express.static('public'));
 function extractProductId(url) {
   try {
     // Busca MLA seguido de numeros
+    const m1 = url.match(/item_id:MLA(\d+)/); if (m1) return 'MLA' + m1[1];
     const match = url.match(/MLA(\d+)/);
     if (match) return 'MLA' + match[1];
     return null;
