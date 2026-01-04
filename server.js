@@ -64,7 +64,12 @@ app.post('/api/analyze', async (req, res) => {
     if (!itemId) return res.status(400).json({ error: 'Invalid Mercado Libre URL' });
     
     let product = await getProductData(itemId);
-    if (!product) return res.status(400).json({ error: 'Product not found' });
+        // Si no encuentra el producto, extrae keywords de la URL como fallback
+    if (!product) {
+      const urlParts = url.split('/').filter(p => p.length > 0);
+      const keywordFromUrl = urlParts.filter(p => !p.includes('www') && !p.includes('mercado') && !p.includes('.ar') && !p.includes('?') && !p.includes('up') && !p.includes('item'))[0] || 'lente camara';
+      product = { title: keywordFromUrl.replace(/-/g, ' '), price: 0, description: 'Producto no encontrado en BD' };
+    }
     
     const title = product.title || 'Producto';
     const competitors = await searchCompetitors(title);
