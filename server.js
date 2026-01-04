@@ -192,22 +192,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor en puerto ${PORT}`);
 });
-
-
-Copy
-
-
-Search
-
-
-Translate
-
-
-Setting
-Search for similar products on 1688
-
-
-❯
-
-
-
