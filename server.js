@@ -54,13 +54,14 @@ function generateMockCompetitors(title, limit = 10) {
 
 app.post('/api/analyze', async (req, res) => {
   try {
-    const { publicationUrl } = req.body;
-    if (!publicationUrl) return res.status(400).json({ error: 'URL requerida' });
+ const { publicationUrl, url } = req.body;
+     const finalUrl = publicationUrl || url;
+     if (!finalUrl) return res.status(400).json({ error: 'URL requerida' });
 
-    const itemId = extractItemId(publicationUrl);
+    const itemId = extractItemId(finalUrl);
     if (!itemId) return res.status(400).json({ error: 'URL invalida' });
 
-    const urlParts = publicationUrl.split('/').filter(p => p);
+    const urlParts = finalUrl.split('/').filter(p => p);
     const titleFromUrl = urlParts[urlParts.length - 2] || 'Producto';
     const cleanTitle = titleFromUrl.replace(/-/g, ' ').replace(/mlau|up|mla|\d+/gi, '').trim();
 
