@@ -35,17 +35,10 @@ async function getProductData(itemId) {
 async function searchCompetitors(keywords) {
   try {
     const q = keywords.split(' ').slice(0, 2).join(' ');
-    const res = await axios.get('https://api.mercadolibre.com/sites/MLA/search', {
-      params: { q, limit: 20 },
-      timeout: 8000
-    });
-    return (res.data.results || []).map(item => ({
-      title: item.title,
-      price: item.price,
-      sold: item.sold_quantity
-    }));
+    const res = await axios.get(`https://api.mercadolibre.com.ar/sites/MLA/search?q=${encodeURIComponent(q)}&limit=20`, { timeout: 8000 });
+    return res.data.results || [];
   } catch (e) {
-    console.error('Search error:', e.message);
+    console.error('Competitor search error:', e.message);
     return [];
   }
 }
@@ -67,7 +60,7 @@ app.post('/api/analyze', async (req, res) => {
     const itemId = extractProductId(url);
     if (!itemId) return res.status(400).json({ error: 'Invalid Mercado Libre URL' });
     
-    const product = await getProductData(itemId);
+    let product = await getProductData(itemId);
     if (!product) return res.status(400).json({ error: 'Product not found' });
     
     const title = product.title || 'Producto';
@@ -91,7 +84,7 @@ app.post('/api/analyze', async (req, res) => {
         { intent: 'Intención de Compra', title: title.substring(0, 60) + ' | Mejor Precio', coverage: 92, reasoning: 'Enfoque en precio' },
         { intent: 'Específico', title: title.substring(0, 60) + ' | Stock Disponible', coverage: 88, reasoning: 'Disponibilidad' }
       ],
-      optimizedDescription: title + '\\n\\nProducto de calidad\\n✓ Envío rápido\n✓ Garantía\n✓ Compra segura',
+      optimizedDescription: title + '\\n\\nProducto de calidad\\n✓ Envío rápido\\n✓ Garantía\\n✓ Compra segura',
       yourKeywords: yourKeywords.slice(0, 5),
       competitorAnalysis: { topKeywords: competitorKeywords.slice(0, 5), missingKeywords: missing },
       competitors: competitors.slice(0, 20),
