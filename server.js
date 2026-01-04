@@ -25,10 +25,25 @@ function analyzeKeywords(text) {
 function generateOptimizedTitles(title) {
   const base = title.substring(0, 60);
   return [
-    base + ' - Envio Gratis',
-    base + ' - Mejor Precio',
-    base + ' - Stock Disponible'
-  ];
+ {
+ intent: 'Búsqueda Informativa',
+ title: base + ' - Envío Gratis',
+ coverage: 85,
+ reasoning: 'Atrae usuarios buscando opciones de envío'
+ },
+ {
+ intent: 'Intención de Compra',
+ title: base + ' - Mejor Precio',
+ coverage: 92,
+ reasoning: 'Optimizado para conversión con énfasis en precio'
+ },
+ {
+ intent: 'Específico de Producto',
+ title: base + ' - Stock Disponible',
+ coverage: 78,
+ reasoning: 'Enfatiza disponibilidad inmediata'
+ }
+ ]
 }
 
 function generateOptimizedDescription(title, desc) {
@@ -89,6 +104,12 @@ app.post('/api/analyze', async (req, res) => {
       },
       suggestedTitles,
       optimizedDescription,
+       keywordGap: missingKeywords.map(k => ({
+ keyword: k.word,
+ importance: k.count,
+ priority: 'P1',
+ suggestedPlacement: 'description'
+ })),
       yourKeywords: yourKeywords.slice(0, 5),
       competitorAnalysis: {
         topKeywords: competitorKeywords.slice(0, 5),
