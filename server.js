@@ -142,6 +142,47 @@ app.post('/api/analyze', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.post('/api/analyze', async (req, res) => {
+  try {
+    const { publicationUrl } = req.body;
+    
+    if (!publicationUrl) {
+      return res.status(400).json({ error: 'URL de publicación requerida' });
+    }
+
+    const itemId = extractItemId(publicationUrl);
+    if (!itemId) {
+      return res.status(400).json({ error: 'URL de Mercado Libre inválida' });
+    }
+
+    const itemData = await getItemData(itemId);
+    const description = await getItemDescription(itemId);
+    const competitors = await getCompetitors(itemData.title, itemData.category_id, 20);
+    
+    const yourKeywords = analyzeKeywords(itemData.title + ' ' + description);
+    const competitorKeywords = analyzeKeywords(competitors.map(c => c.title).join(' '));
+    
+    const suggestedTitles = generateOptimizedTitles(itemData, yourKeywords, competitorKeywords);
+    const optimizedDescription = generateOptimizedDescription(itemData);
+    const keywordGap = calculateKeywordGap(yourKeywords, competitorKeywords);
+    
+    res.json({
+      currentData: { title: itemData.title, price: itemData.price, description: description.substring(0, 200) },
+      suggestedTitles,
+      optimizedDescription,
+      keywordGap,
+      competitors: competitors.slice(0, 5).map(c => ({ title: c.title, price: c.price, soldQuantity: c.sold_quantity || 0 })),
+      checklist: [
+        { task: 'Actualizar título', priority: 'P0', impact: 'Cobertura de búsquedas' },
+        { task: 'Completar atributos', priority: 'P0', impact: 'Filtros' },
+        { task: 'Reemplazar descripción', priority: 'P1', impact: 'Conversión' }
+      ]
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
