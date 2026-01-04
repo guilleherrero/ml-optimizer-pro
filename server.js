@@ -152,6 +152,42 @@ app.post('/api/analyze', async (req, res) => {
 });
 app.post('/api/analyze', async (req, res) => {
   try {
+        // DATOS SIMULADOS PARA DEMOSTRACIÓN
+    const mockData = {
+      title: 'Faja Colombiana Reductora Post Parto - Compresión Equilibrada',
+      price: 2999,
+      category_id: 'MLA5672',
+      description: 'Faja colombiana de alta compresión con soporte abdominal y lumbar. Material transpirable y cómodo para uso diario. Control de peso post-parto. Garantía de 1 año.'
+    };
+    const mockDescription = 'Faja colombiana reductora con diseño ergonómico. Banda de compresión ajustable. Material elástico transpirable. Reduce cintura hasta 3 tallas. Control abdominal y postura. Ideal post-parto. Cómoda para usar todo el día.';
+    const mockCompetitors = [
+      { title: 'Faja Post Parto Compresión Fuerte', price: 2499, sold_quantity: 1240 },
+      { title: 'Faja Reductora Abdominal Compresión', price: 1999, sold_quantity: 856 },
+      { title: 'Cintura Control Faja Mujer Compresión', price: 2299, sold_quantity: 634 },
+      { title: 'Faja Colombiana Reductor de Cintura', price: 2799, sold_quantity: 512 },
+      { title: 'Faja Post Parto Cintura Cadera', price: 2199, sold_quantity: 445 }
+    ];
+    
+    const yourKeywords = analyzeKeywords(mockData.title + ' ' + mockDescription);
+    const competitorKeywords = analyzeKeywords(mockCompetitors.map(c => c.title).join(' '));
+    const suggestedTitles = generateOptimizedTitles(mockData, yourKeywords, competitorKeywords);
+    const optimizedDescription = generateOptimizedDescription(mockData);
+    const keywordGap = calculateKeywordGap(yourKeywords, competitorKeywords);
+    
+    return res.json({
+      currentData: { title: mockData.title, price: mockData.price, description: mockDescription.substring(0, 200) },
+      suggestedTitles,
+      optimizedDescription,
+      keywordGap,
+      competitors: mockCompetitors.map(c => ({ title: c.title, price: c.price, soldQuantity: c.sold_quantity || 0 })),
+      checklist: [
+        { task: 'Actualizar título con palabras clave principales', priority: 'P0', impact: 'Cobertura de búsquedas' },
+        { task: 'Completar todos los atributos del producto', priority: 'P0', impact: 'Filtros de búsqueda' },
+        { task: 'Reemplazar descripción con versión optimizada', priority: 'P1', impact: 'Tasa de conversión' },
+        { task: 'Agregar palabras clave del top 20', priority: 'P1', impact: 'Visibilidad en búsqueda' }
+      ]
+    });
+
         // Agregar timeout a todas las promesas
     const timeoutPromise = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Solicitud excedió el tiempo límite')), 8000)
