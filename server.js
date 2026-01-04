@@ -7,20 +7,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Extrae ID de producto
 function extractProductId(url) {
   try {
-    // Busca MLA seguido de numeros
-    const m1 = url.match(/item_id:MLA(\d+)/); if (m1) return 'MLA' + m1[1];
-    const match = url.match(/MLA(\d+)/);
-    if (match) return 'MLA' + match[1];
+    // Intenta extraer el ID en formato item_id:MLA...
+    let m = url.match(/item_id:MLA(\d+)/);
+    if (m) return 'MLA' + m[1];
+    // Intenta extraer del formato MLA-...-...
+    m = url.match(/MLA(\d+)/);
+    if (m) return 'MLA' + m[1];
     return null;
   } catch (e) {
     return null;
   }
 }
 
-// Obtiene datos del producto
 async function getProductData(itemId) {
   try {
     const res = await axios.get(`https://api.mercadolibre.com/items/${itemId}`, { timeout: 8000 });
@@ -31,7 +31,6 @@ async function getProductData(itemId) {
   }
 }
 
-// Busca competidores
 async function searchCompetitors(keywords) {
   try {
     const q = keywords.split(' ').slice(0, 2).join(' ');
@@ -45,8 +44,8 @@ async function searchCompetitors(keywords) {
 
 function getKeywords(text) {
   if (!text) return [];
-  const stop = ['de', 'el', 'la', 'y', 'en', 'a', 'con', 'para', 'por', 'o'];
-  const words = text.toLowerCase().replace(/[^a-z0-9\\s]/g, '').split(/\\s+/).filter(w => w.length > 3 && !stop.includes(w));
+  const stop = ['de', 'el', 'la', 'y', 'en', 'a', 'con', 'para', 'por', 'o', 'los', 'las', 'las', 'le', 'es', 'al'];
+  const words = text.toLowerCase().split(/[^a-z0-9]/g).filter(w => w.length > 2 && !stop.includes(w));
   const freq = {};
   words.forEach(w => freq[w] = (freq[w] || 0) + 1);
   return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([w, c]) => ({ word: w, count: c }));
@@ -76,22 +75,22 @@ app.post('/api/analyze', async (req, res) => {
       currentData: {
         title: title,
         price: product.price || 0,
-        description: product.description || 'Sin descripción',
+        description: product.description || 'Sin descripcion',
         competitorCount: competitors.length
       },
       suggestedTitles: [
-        { intent: 'Búsqueda Informativa', title: title.substring(0, 60) + ' | Envío Gratis', coverage: 85, reasoning: 'Buscan envío gratis' },
-        { intent: 'Intención de Compra', title: title.substring(0, 60) + ' | Mejor Precio', coverage: 92, reasoning: 'Enfoque en precio' },
-        { intent: 'Específico', title: title.substring(0, 60) + ' | Stock Disponible', coverage: 88, reasoning: 'Disponibilidad' }
+        { intent: 'Busqueda Informativa', title: title.substring(0, 60) + ' | Envio Gratis', coverage: 85, reasoning: 'Buscan envio gratis' },
+        { intent: 'Intencion de Compra', title: title.substring(0, 60) + ' | Mejor Precio', coverage: 92, reasoning: 'Enfoque en precio' },
+        { intent: 'Especifico', title: title.substring(0, 60) + ' | Stock Disponible', coverage: 88, reasoning: 'Disponibilidad' }
       ],
-      optimizedDescription: title + '\\n\\nProducto de calidad\\n✓ Envío rápido\\n✓ Garantía\\n✓ Compra segura',
+      optimizedDescription: title + '\\nProducto de calidad\\nEnvio rapido\\nGarantia\\nCompra segura',
       yourKeywords: yourKeywords.slice(0, 5),
       competitorAnalysis: { topKeywords: competitorKeywords.slice(0, 5), missingKeywords: missing },
       competitors: competitors.slice(0, 20),
       keywordGap: missing.map(k => ({ keyword: k.word, importance: k.count, priority: k.count > 2 ? 'P0' : 'P1', suggestedPlacement: 'titulo' })),
       checklist: [
-        { task: 'Actualizar título con palabras clave', priority: 'P0', impact: 'Visibilidad' },
-        { task: 'Optimizar descripción', priority: 'P0', impact: 'Conversión' },
+        { task: 'Actualizar titulo con palabras clave', priority: 'P0', impact: 'Visibilidad' },
+        { task: 'Optimizar descripcion', priority: 'P0', impact: 'Conversion' },
         { task: 'Ajustar precio', priority: 'P1', impact: 'Ventas' },
         { task: 'Fotos de calidad', priority: 'P1', impact: 'Confianza' }
       ]
