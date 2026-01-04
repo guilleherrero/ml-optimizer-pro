@@ -9,16 +9,20 @@ app.use(express.static('public'));
 
 function extractProductId(url) {
   try {
-    // Intenta extraer el ID en formato item_id:MLA...
+// Intenta extraer el ID en múltiples formatos
+    // Formato 1: pdp_filters=item_id:MLA1234567
     let m = url.match(/item_id:MLA(\d+)/);
     if (m) return 'MLA' + m[1];
-    // Intenta extraer del formato MLA-...-...
+    // Formato 2: /up/MLAU... (anterior) - extrae números después de MLA
+    m = url.match(/\/up\/MLA[AU](\d+)/);
+    if (m) return 'MLA' + m[1];
+    // Formato 3: /item/MLA1234567
+    m = url.match(/\/item\/MLA(\d+)/);
+    if (m) return 'MLA' + m[1];
+    // Formato 4: /MLA1234567 o MLA1234567 en la URL
     m = url.match(/MLA(\d+)/);
     if (m) return 'MLA' + m[1];
-    return null;
-  } catch (e) {
-    return null;
-  }
+    return null;  }
 }
 
 async function getProductData(itemId) {
