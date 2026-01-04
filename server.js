@@ -105,10 +105,11 @@ app.post('/api/analyze', async (req, res) => {
       suggestedTitles,
       optimizedDescription,
        keywordGap: missingKeywords.map(k => ({
- keyword: k.word,
- importance: k.count,
- priority: 'P1',
- suggestedPlacement: 'description'
+        keyword: k.word,
+        importance: k.count,
+        priority: 'P1',
+        suggestedPlacement: 'description'
+      })),
  })),
       yourKeywords: yourKeywords.slice(0, 5),
       competitorAnalysis: {
