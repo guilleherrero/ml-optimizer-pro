@@ -9,15 +9,15 @@ app.use(express.json());
 app.use(express.static('public'));
 
 function extractItemId(url) {
-  // Primero intenta extraer del parámetro item_id en la query string
-  const queryMatch = url.match(/item_id[=:]([A-Z]+\d+)/);
-  if (queryMatch && queryMatch[1]) {
-    return queryMatch[1].replace(':', '');
+  // Intenta extraer del parámetro item_id
+  const queryMatch = url.match(/(item_id)[=:]([A-Z]+\d+)/);
+  if (queryMatch && queryMatch[2]) {
+    return queryMatch[2];
   }
   // Si no, busca MLA seguido de dígitos
   const urlMatch = url.match(/MLA(\d+)/);
-  return urlMatch ? urlMatch[1] : null;
-}
+  return urlMatch ? 'MLA' + urlMatch[1] : null;
+}}
 async function getItemData(itemId) {
   try {
     const response = await axios.get(`https://api.mercadolibre.com/items/MLA${itemId}`);
