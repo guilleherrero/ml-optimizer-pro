@@ -7,52 +7,72 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Extrae palabra clave de la URL
-function extractKeywordFromUrl(url) {
+// Extrae palabra clave y ID de producto de la URL
+function extractKeywordAndIdFromUrl(url) {
   try {
     const urlObj = new URL(url);
     const pathname = urlObj.pathname;
-    // Intenta extraer del pathname
+    // Formato: /item/MLAXXX-producto-name
     const parts = pathname.split('/');
-    // Busca la parte que contiene 'item'
-    const itemIndex = parts.findIndex(p => p.startsWith('MLA'));
-    if (itemIndex >= 0) {
-      // Toma todo después del item ID
-      const titlePart = parts.slice(itemIndex + 1).join(' ');
-      if (titlePart) {
-        return decodeURIComponent(titlePart).replace(/-/g, ' ').substring(0, 100);
-      }
+    const itemPart = parts.find(p => p.startsWith('MLA'));
+    if (itemPart) {
+      const id = itemPart.split('-')[0];
+      return { id, url };
     }
-    return 'Producto Mercado Libre';
+    return null;
   } catch (e) {
-    return 'Producto Mercado Libre';
+    return null;
   }
 }
 
-// Genera productos simulados como fallback
-function generateMockProducts(keyword, limit) {
-  const products = [];
-  const baseKeyword = keyword.split(' ')[0] || 'Producto';
-  const variants = ['Premium', 'Básico', 'Pro', 'Deluxe', 'Standard', 'Professional', 'Original', 'Mejorado', 'Exclusivo', 'Especial'];
-  const extras = ['con envio gratis', 'mejor precio', 'garantia', 'stock disponible', 'oferta', 'promocion'];
-  
-  for (let i = 0; i < limit; i++) {
-    const extra = extras[Math.floor(Math.random() * extras.length)];
-    products.push({
-      title: `${baseKeyword} ${variants[i % variants.length]} - ${extra}`,
-      price: Math.floor(Math.random() * 10000) + 500,
-      soldQuantity: Math.floor(Math.random() * 500)
+// Obtiene informacion del producto desde ML API
+async function fetchProductInfo(itemId) {
+  try {
+    const response = await axios.get(`https://api.mercadolibre.com/items/${itemId}`, {
+      timeout: 10000
     });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching product:', error.message);
+    return null;
   }
-  return products;
+}
+
+// Busca productos competidores en ML Argentina
+async function searchCompetitors(title, limit = 20) {
+  try {
+    // Extrae palabras clave principales del titulo
+    const keywords = title.split(' ').filter(w => w.length > 3).slice(0, 3).join(' ');
+    if (!keywords) return [];
+    
+    const response = await axios.get('https://api.mercadolibre.com/sites/MLA/search', {
+      params: {
+        q: keywords,
+        limit: limit,
+        sort: 'relevance'
+      },
+      timeout: 10000
+    });
+    
+    return response.data.results.map(item => ({
+      title: item.title,
+      price: item.price,
+      soldQuantity: item.sold_quantity,
+      seller: item.seller.nickname
+    }));
+  } catch (error) {
+    console.error('Error searching competitors:', error.message);
+    return [];
+  }
 }
 
 function analyzeKeywords(text) {
   if (!text) return [];
+  const stopwords = ['de', 'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'o', 'con', 'sin', 'para', 'por', 'en', 'a', 'al'];
   const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 3);
+    .replace(/[^\\w\\s]/g, '')
+    .split(/\\s+/)
+    .filter(w => w.length > 3 && !stopwords.includes(w));
   
   const frequency = {};
   words.forEach(w => {
@@ -70,27 +90,27 @@ function generateOptimizedTitles(title) {
   return [
     {
       intent: 'Búsqueda Informativa',
-      title: base + ' - Envío Gratis',
+      title: base + ' | Envío Gratis',
       coverage: 85,
-      reasoning: 'Atrae usuarios buscando opciones de envío'
+      reasoning: 'Atrae usuarios buscando opciones de envío gratuito'
     },
     {
       intent: 'Intención de Compra',
-      title: base + ' - Mejor Precio',
+      title: base + ' | Mejor Precio',
       coverage: 92,
-      reasoning: 'Optimizado para conversión con énfasis en precio'
+      reasoning: 'Optimizado para conversión con énfasis en precio competitivo'
     },
     {
       intent: 'Específico de Producto',
-      title: base + ' - Stock Disponible',
-      coverage: 78,
-      reasoning: 'Enfatiza disponibilidad inmediata'
+      title: base + ' | Stock Disponible',
+      coverage: 88,
+      reasoning: 'Enfatiza disponibilidad inmediata y confianza'
     }
   ];
 }
 
-function generateOptimizedDescription(title, desc) {
-  return `${title}\\n\\n${desc}\\n\\nEnvío disponible\\nProducto de calidad\\nGarantía incluida`;
+function generateOptimizedDescription(title, currentDesc) {
+  return `${title}\\n\\n${currentDesc}\\n\\n✓ Envío rápido\n✓ Producto original\n✓ Garantía incluida\n✓ Compra segura`;
 }
 
 app.post('/api/analyze', async (req, res) => {
@@ -98,40 +118,43 @@ app.post('/api/analyze', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL requerida' });
     
-    // Extrae la palabra clave
-    const keyword = extractKeywordFromUrl(url);
-    console.log(`Analizando URL: ${url}`);
-    console.log(`Palabra clave extraída: ${keyword}`);
+    // Extrae ID del producto
+    const extracted = extractKeywordAndIdFromUrl(url);
+    if (!extracted) return res.status(400).json({ error: 'URL inválida de Mercado Libre' });
     
-    // Genera competencia simulada (sin cheerio)
-    const competitors = generateMockProducts(keyword, 20);
-    console.log(`Competidores generados: ${competitors.length}`);
+    console.log(`Analizando producto: ${extracted.id}`);
     
-    const currentData = {
-      title: keyword,
-      price: competitors.length > 0 ? Math.round(competitors[0].price * 0.95) : 2499,
-      description: 'Producto de calidad con envío disponible'
-    };
+    // Obtiene info del producto actual
+    const productInfo = await fetchProductInfo(extracted.id);
+    if (!productInfo) {
+      return res.status(400).json({ error: 'No se pudo obtener el producto. Verifica la URL.' });
+    }
+    
+    const currentTitle = productInfo.title || 'Producto';
+    const currentPrice = productInfo.price || 0;
+    
+    // Busca competencia real
+    console.log(`Buscando competencia para: ${currentTitle}`);
+    const competitors = await searchCompetitors(currentTitle, 20);
+    console.log(`Competidores encontrados: ${competitors.length}`);
     
     // Analiza palabras clave
-    const yourKeywords = analyzeKeywords(currentData.title + ' ' + currentData.description);
-    const competitorKeywords = analyzeKeywords(
-      competitors.map(c => c.title).join(' ')
-    );
+    const yourKeywords = analyzeKeywords(currentTitle);
+    const competitorKeywords = analyzeKeywords(competitors.map(c => c.title).join(' '));
     
     const yourKeywordSet = new Set(yourKeywords.map(k => k.word));
     const missingKeywords = competitorKeywords
       .filter(k => !yourKeywordSet.has(k.word))
       .slice(0, 5);
     
-    const suggestedTitles = generateOptimizedTitles(currentData.title);
-    const optimizedDescription = generateOptimizedDescription(currentData.title, currentData.description);
+    const suggestedTitles = generateOptimizedTitles(currentTitle);
+    const optimizedDescription = generateOptimizedDescription(currentTitle, 'Producto de alta calidad');
     
     res.json({
       currentData: {
-        title: currentData.title,
-        price: currentData.price,
-        description: currentData.description,
+        title: currentTitle,
+        price: currentPrice,
+        description: productInfo.description || 'Sin descripción',
         competitorCount: competitors.length
       },
       suggestedTitles,
@@ -141,27 +164,23 @@ app.post('/api/analyze', async (req, res) => {
         topKeywords: competitorKeywords.slice(0, 5),
         missingKeywords
       },
-      competitors: competitors.slice(0, 20).map(c => ({
-        title: c.title,
-        price: c.price,
-        soldQuantity: c.soldQuantity
-      })),
+      competitors: competitors.slice(0, 20),
       keywordGap: missingKeywords.map(k => ({
         keyword: k.word,
         importance: k.count,
         priority: k.count > 2 ? 'P0' : 'P1',
-        suggestedPlacement: 'description'
+        suggestedPlacement: 'titulo y descripcion'
       })),
       checklist: [
-        { task: 'Actualizar titulo con palabras clave', priority: 'P0', impact: 'Visibilidad' },
-        { task: 'Optimizar descripcion', priority: 'P0', impact: 'Conversion' },
-        { task: 'Agregar fotos de calidad', priority: 'P1', impact: 'Confianza' },
-        { task: 'Usar palabras clave competidor', priority: 'P1', impact: 'SEO' }
+        { task: 'Actualizar titulo con palabras clave encontradas', priority: 'P0', impact: 'Visibilidad en búsqueda' },
+        { task: 'Optimizar descripcion con palabras de competencia', priority: 'P0', impact: 'Conversión' },
+        { task: 'Ajustar precio competitivamente', priority: 'P1', impact: 'Competitividad' },
+        { task: 'Agregar fotos de calidad profesional', priority: 'P1', impact: 'Confianza' }
       ]
     });
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message || 'Error en el servidor' });
   }
 });
 
