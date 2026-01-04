@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ML Optimizer Pro - Optimiza tus publicaciones</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .gradient-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .card-shadow { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+    .copy-btn { transition: all 0.2s; }
+    .copy-btn:hover { background-color: #10b981; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="gradient-header text-white py-8">
+    <div class="max-w-6xl mx-auto px-4">
+      <h1 class="text-4xl font-bold">ML Optimizer Pro</h1>
+      <p class="text-gray-100 mt-2">Optimiza tus publicaciones de Mercado Libre Argentina con análisis real de competencia</p>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Sección de entrada -->
+    <div id="inputSection" class="card-shadow bg-white rounded-lg p-8 mb-8">
+      <h2 class="text-2xl font-bold mb-6">Pega tu URL de Mercado Libre</h2>
+      <div class="flex gap-4 mb-4">
+        <input type="text" id="urlInput" placeholder="https://www.mercadolibre.com.ar/item/MLA..." class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+        <button id="analyzeBtn" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition">Analizar</button>
+      </div>
+      <div id="loadingMessage" class="hidden mt-4 text-center">
+        <p class="text-gray-600">Analizando tu publicación...</p>
+        <div class="mt-2 inline-block animate-spin h-6 w-6 border-4 border-purple-300 border-t-purple-600 rounded-full"></div>
+      </div>
+      <div id="errorMessage" class="hidden mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded"></div>
+    </div>
+
+    <!-- Sección de resultados (oculta inicialmente) -->
+    <div id="resultsSection" class="hidden">
+      <!-- Resumen actual -->
+      <div class="card-shadow bg-white rounded-lg p-8 mb-8">
+        <h2 class="text-2xl font-bold mb-6">Tu publicación actual</h2>
+        <div id="currentData" class="grid md:grid-cols-2 gap-6"></div>
+      </div>
+
+      <!-- Títulos sugeridos -->
+      <div class="card-shadow bg-white rounded-lg p-8 mb-8">
+        <h2 class="text-2xl font-bold mb-6">3 Títulos Sugeridos (por intención)</h2>
+        <div id="titlesContainer" class="space-y-6"></div>
+      </div>
+
+      <!-- Descripción optimizada -->
+      <div class="card-shadow bg-white rounded-lg p-8 mb-8">
+        <h2 class="text-2xl font-bold mb-6">Descripción Optimizada</h2>
+        <div id="descriptionContainer" class="bg-gray-100 p-4 rounded mb-4 max-h-96 overflow-y-auto"></div>
+        <button class="bg-blue-600 text-white px-6 py-2 rounded copy-btn" onclick="copyToClipboard('descriptionContainer')">Copiar descripción</button>
+      </div>
+
+      <!-- Keyword Gap -->
+      <div class="card-shadow bg-white rounded-lg p-8 mb-8">
+        <h2 class="text-2xl font-bold mb-6">Palabras Clave que Faltantes (vs Competencia)</h2>
+        <div id="keywordGapContainer" class="overflow-x-auto"></div>
+      </div>
+
+      <!-- Checklist -->
+      <div class="card-shadow bg-white rounded-lg p-8 mb-8">
+        <h2 class="text-2xl font-bold mb-6">Checklist de Mejoras</h2>
+        <div id="checklistContainer" class="space-y-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function analyzePublication() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) { alert('Por favor ingresa una URL'); return; }
+
+      document.getElementById('loadingMessage').classList.remove('hidden');
+      document.getElementById('errorMessage').classList.add('hidden');
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+
+        if (!response.ok) throw new Error('Error en la solicitud');
+        const data = await response.json();
+
+        renderResults(data);
+        document.getElementById('resultsSection').classList.remove('hidden');
+      } catch (error) {
+        document.getElementById('errorMessage').textContent = error.message || 'Error al analizar';
+        document.getElementById('errorMessage').classList.remove('hidden');
+      } finally {
+        document.getElementById('loadingMessage').classList.add('hidden');
+      }
+    }
+
+    function renderResults(data) {
+      // Datos actuales
+      const currentHTML = `<div class="bg-gray-50 p-4 rounded"><strong>Título actual:</strong> ${data.currentData.title}</div><div class="bg-gray-50 p-4 rounded"><strong>Precio:</strong> $${data.currentData.price}</div>`;
+      document.getElementById('currentData').innerHTML = currentHTML;
+
+      // Títulos
+      let titlesHTML = '';
+      data.suggestedTitles.forEach((t, i) => {
+        titlesHTML += `<div class="border-l-4 border-purple-600 pl-4 py-3"><h3 class="font-bold text-lg">${i+1}. ${t.intent}</h3><p class="text-gray-700 my-2">${t.title}</p><p class="text-sm text-gray-500">Cobertura: ${t.coverage}% | ${t.reasoning}</p><button class="bg-green-500 text-white px-4 py-1 rounded mt-2 text-sm" onclick="copyToClipboard('t${i}')">Copiar</button><p id="t${i}" style="display:none">${t.title}</p></div>`;
+      });
+      document.getElementById('titlesContainer').innerHTML = titlesHTML;
+
+      // Descripción
+      document.getElementById('descriptionContainer').innerHTML = data.optimizedDescription;
+
+      // Keyword Gap
+      if (data.keywordGap.length > 0) {
+        let gapHTML = '<table class="w-full text-sm"><tr><th class="text-left p-2">Palabra clave</th><th class="text-left p-2">Importancia</th><th class="text-left p-2">Prioridad</th><th class="text-left p-2">Ubicación</th></tr>';
+        data.keywordGap.forEach(k => {
+          gapHTML += `<tr class="border-b"><td class="p-2">${k.keyword}</td><td class="p-2">${k.importance}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded ${k.priority === 'P0' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${k.priority}</span></td><td class="p-2">${k.suggestedPlacement}</td></tr>`;
+        });
+        gapHTML += '</table>';
+        document.getElementById('keywordGapContainer').innerHTML = gapHTML;
+      }
+
+      // Checklist
+      let checklistHTML = '';
+      data.checklist.forEach(item => {
+        checklistHTML += `<div class="flex items-start"><input type="checkbox" class="mr-4 mt-1"><div><p class="font-semibold">${item.task}</p><p class="text-sm text-gray-600">Prioridad: ${item.priority} | Impacto: ${item.impact}</p></div></div>`;
+      });
+      document.getElementById('checklistContainer').innerHTML = checklistHTML;
+    }
+
+    function copyToClipboard(id) {
+      const text = document.getElementById(id).innerText || document.getElementById(id).innerHTML;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('¡Copiado al portapapeles!');
+      });
+    }
+
+    document.getElementById('analyzeBtn').addEventListener('click', analyzePublication);
+    document.getElementById('urlInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') analyzePublication();
+    });
+  </script>
+</body>
+</html>
